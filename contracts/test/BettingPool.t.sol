@@ -1085,3 +1085,4 @@ contract BettingPoolTest is Test {
         // This is implicitly verified by poolBalance == 0
     }
 }
+
