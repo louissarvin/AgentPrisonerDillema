@@ -34,3 +34,4 @@ contract DeployUnichain is Script {
         console.log("  USDC:", address(bettingPool.USDC()));
     }
 }
+
