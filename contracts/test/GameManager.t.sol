@@ -1055,3 +1055,4 @@ contract GameManagerTest is Test {
         assertEq(m.scoreB, 3 * customStake);
     }
 }
+
