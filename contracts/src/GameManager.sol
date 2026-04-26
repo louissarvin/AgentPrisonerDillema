@@ -329,3 +329,4 @@ contract GameManager is Ownable {
         emit MatchEnded(matchId, m.scoreA, m.scoreB, reason);
     }
 }
+
