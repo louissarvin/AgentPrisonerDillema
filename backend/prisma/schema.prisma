@@ -1,0 +1,239 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "./generated"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum TournamentStatus {
+  REGISTRATION
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum MatchStatus {
+  PENDING
+  ACTIVE
+  COMPLETED
+}
+
+enum RoundPhase {
+  NEGOTIATE
+  COMMIT
+  REVEAL
+  RESOLVED
+}
+
+model User {
+  id            String   @id @default(cuid())
+  walletAddress String   @unique
+  nonce         String?
+  lastSignIn    DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("users")
+}
+
+model Agent {
+  id            String   @id @default(cuid())
+  name          String
+  personality   String   @db.Text
+  systemPrompt  String   @db.Text
+  walletAddress       String   @unique
+  encryptedPrivateKey String?
+  axlPeerId     String?  @unique
+  axlPort       Int?
+  totalScore    Int      @default(0)
+  totalWins     Int      @default(0)
+  matchesPlayed Int      @default(0)
+  coopRate      Float    @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  matchesAsA       Match[]  @relation("AgentA")
+  matchesAsB       Match[]  @relation("AgentB")
+  negotiations     Negotiation[]
+  swapTransactions SwapTransaction[]
+
+  @@map("agents")
+}
+
+model Tournament {
+  id                  String           @id @default(cuid())
+  onChainId           Int?             @unique
+  status              TournamentStatus @default(REGISTRATION)
+  entryFee            Decimal          @default(0)
+  prizePool           Decimal          @default(0)
+  maxAgents           Int              @default(8)
+  stakePerRound       Decimal          @default(1)
+  registrationDeadline DateTime?
+  matches             Match[]
+  bets                Bet[]
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+
+  @@map("tournaments")
+}
+
+model Match {
+  id           String      @id @default(cuid())
+  onChainId    Int?        @unique
+  tournamentId String
+  tournament   Tournament  @relation(fields: [tournamentId], references: [id])
+  agentAId     String
+  agentBId     String
+  agentA       Agent       @relation("AgentA", fields: [agentAId], references: [id])
+  agentB       Agent       @relation("AgentB", fields: [agentBId], references: [id])
+  scoreA       Int         @default(0)
+  scoreB       Int         @default(0)
+  currentRound Int         @default(0)
+  status       MatchStatus @default(PENDING)
+  winnerId     String?
+  txHash       String?
+  endReason    String?
+  rounds       Round[]
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  @@index([tournamentId])
+  @@index([agentAId])
+  @@index([agentBId])
+  @@map("matches")
+}
+
+model Round {
+  id           String       @id @default(cuid())
+  matchId      String
+  match        Match        @relation(fields: [matchId], references: [id])
+  roundNumber  Int
+  phase        RoundPhase   @default(NEGOTIATE)
+  commitA      String?
+  commitB      String?
+  secretA      String?
+  secretB      String?
+  moveA        Int?
+  moveB        Int?
+  scoreA       Int?
+  scoreB       Int?
+  commitTxA    String?
+  commitTxB    String?
+  revealTxA    String?
+  revealTxB    String?
+  resolveTx    String?
+  inferenceIdA String?
+  inferenceIdB String?
+  teeVerifiedA Boolean      @default(false)
+  teeVerifiedB Boolean      @default(false)
+  negotiations Negotiation[]
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  @@unique([matchId, roundNumber])
+  @@index([matchId])
+  @@map("rounds")
+}
+
+model Negotiation {
+  id        String   @id @default(cuid())
+  roundId   String
+  round     Round    @relation(fields: [roundId], references: [id])
+  agentId   String
+  agent     Agent    @relation(fields: [agentId], references: [id])
+  message   String   @db.Text
+  turn      Int
+  createdAt DateTime @default(now())
+
+  @@index([roundId])
+  @@index([agentId])
+  @@map("negotiations")
+}
+
+model Bet {
+  id           String     @id @default(cuid())
+  tournamentId String
+  tournament   Tournament @relation(fields: [tournamentId], references: [id])
+  matchId      String
+  roundNumber  Int
+  bettorAddr   String
+  prediction   String
+  amount       Decimal
+  claimed      Boolean    @default(false)
+  payout       Decimal?
+  txHash       String?
+  createdAt    DateTime   @default(now())
+
+  @@index([tournamentId])
+  @@index([matchId])
+  @@index([bettorAddr])
+  @@map("bets")
+}
+
+model GameEvent {
+  id        String   @id @default(cuid())
+  matchId   String
+  type      String
+  payload   String   @db.Text
+  createdAt DateTime @default(now())
+
+  @@index([matchId])
+  @@index([createdAt])
+  @@map("game_events")
+}
+
+model AgentMemory {
+  id        String   @id @default(cuid())
+  agentId   String
+  agentName String
+  rootHash  String
+  txHash    String?
+  version   Int      @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([agentId])
+  @@index([agentName])
+  @@map("agent_memories")
+}
+
+model ErrorLog {
+  id         String   @id @default(cuid())
+  errorCode  String
+  message    String
+  statusCode Int
+  stack      String?  @db.Text
+  context    String?  @db.Text
+  userId     String?
+  method     String?
+  path       String?
+  userAgent  String?  @db.Text
+  ip         String?
+  createdAt  DateTime @default(now())
+
+  @@index([errorCode])
+  @@index([createdAt])
+  @@map("error_logs")
+}
+
+model SwapTransaction {
+  id        String   @id @default(cuid())
+  agentId   String
+  agent     Agent    @relation(fields: [agentId], references: [id])
+  matchId   String?
+  txHash    String
+  tokenIn   String
+  tokenOut  String
+  amountIn  String
+  amountOut String
+  chainId   Int      @default(1301)
+  type      String   // 'STAKE' | 'CASHOUT' | 'COMMITMENT_BOND'
+  status    String   @default("SUCCESS")
+  createdAt DateTime @default(now())
+
+  @@index([agentId])
+  @@index([matchId])
+  @@index([createdAt])
+  @@map("swap_transactions")
+}
