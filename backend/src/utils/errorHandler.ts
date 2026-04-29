@@ -151,3 +151,4 @@ export const handleDatabaseError = (
 export const handleServerError = (reply: FastifyReply, originalError: Error): Promise<FastifyReply> => {
   return handleError(reply, 500, 'Internal server error', 'INTERNAL_ERROR', originalError);
 };
+
