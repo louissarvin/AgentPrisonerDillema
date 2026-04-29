@@ -155,3 +155,4 @@ export async function cancelBettingForRound(onChainMatchId: number, roundNumber:
 }
 
 export { movesToOutcome };
+
