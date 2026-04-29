@@ -209,3 +209,4 @@ export function calculatePayoff(moveA: number, moveB: number): { payA: number; p
   if (moveA === COOPERATE && moveB === DEFECT) return { payA: 0, payB: 5 };
   return { payA: 1, payB: 1 }; // Both defect
 }
+
