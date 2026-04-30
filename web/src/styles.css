@@ -1,0 +1,318 @@
+@import 'tailwindcss';
+@import '@fontsource-variable/geist-mono';
+@import '@fontsource-variable/inter';
+
+@theme {
+  --color-canvas: #0a0a0a;
+  --color-surface: #0e0e0e;
+  --color-panel: #111111;
+  --color-panel-hover: #161616;
+  --color-cooperate: #00d992;
+  --color-defect: #ff6b35;
+  --color-tee: #8b5cf6;
+  --color-warning: #f59e0b;
+  --color-text-primary: #e8e8e8;
+  --color-text-secondary: #888888;
+  --color-text-muted: #555555;
+  --color-text-ghost: #333333;
+  --color-border: rgba(255, 255, 255, 0.06);
+  --color-border-hover: rgba(255, 255, 255, 0.12);
+  --color-border-strong: rgba(255, 255, 255, 0.2);
+}
+
+@layer base {
+  html {
+    background-color: #0a0a0a;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    margin: 0;
+    font-family:
+      'Inter Variable',
+      'Inter',
+      system-ui,
+      -apple-system,
+      sans-serif;
+    color: #e8e8e8;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: #0a0a0a;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #333333;
+    border-radius: 9999px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #444444;
+  }
+
+  ::selection {
+    background: rgba(255, 255, 255, 0.15);
+    color: #e8e8e8;
+  }
+}
+
+@layer utilities {
+  .font-mono {
+    font-family:
+      'Geist Mono Variable', 'JetBrains Mono', 'Fira Code', ui-monospace,
+      SFMono-Regular, Menlo, Monaco, monospace;
+  }
+
+  .font-display {
+    font-family:
+      'Inter Variable',
+      'Inter',
+      system-ui,
+      -apple-system,
+      sans-serif;
+  }
+
+  .card-rounded {
+    border-radius: 16px;
+  }
+
+  .btn-rounded {
+    border-radius: 9999px;
+  }
+
+  .nav-pill {
+    border-radius: 9999px;
+  }
+}
+
+@keyframes slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.skeleton-shimmer {
+  background: linear-gradient(90deg, #111111 25%, #161616 50%, #111111 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+  border-radius: 6px;
+}
+
+.card-interactive {
+  transition:
+    transform 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 0.5s;
+}
+.card-interactive:hover {
+  transform: translateY(-4px);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.08),
+    0 8px 25px rgba(0, 0, 0, 0.3),
+    0 0 40px rgba(0, 217, 146, 0.08),
+    0 0 80px rgba(139, 92, 246, 0.05);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+@keyframes textReveal {
+  0% {
+    clip-path: inset(0 100% 0 0);
+  }
+  100% {
+    clip-path: inset(0 0% 0 0);
+  }
+}
+.text-reveal {
+  animation: textReveal 0.8s cubic-bezier(0.77, 0, 0.175, 1) forwards;
+  animation-play-state: paused;
+}
+.text-reveal.is-visible {
+  animation-play-state: running;
+}
+
+@keyframes marquee {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+.marquee-track {
+  animation: marquee 25s linear infinite;
+}
+.marquee-track:hover {
+  animation-play-state: paused;
+}
+
+/* ── Hero ambient effects ── */
+
+.dot-grid {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background-image: radial-gradient(
+    rgba(255, 255, 255, 0.03) 1px,
+    transparent 1px
+  );
+  background-size: 24px 24px;
+  pointer-events: none;
+}
+
+.hero-glow {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 800px;
+  height: 600px;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(0, 217, 146, 0.06) 0%,
+    rgba(139, 92, 246, 0.03) 40%,
+    transparent 70%
+  );
+  pointer-events: none;
+  filter: blur(80px);
+}
+
+@keyframes pulse-glow {
+  0%,
+  100% {
+    opacity: 0.4;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: translate(-50%, -50%) scale(1.15);
+  }
+}
+
+@keyframes prismatic-pulse {
+  0%,
+  100% {
+    filter: hue-rotate(0deg) brightness(1);
+  }
+  33% {
+    filter: hue-rotate(60deg) brightness(1.2);
+  }
+  66% {
+    filter: hue-rotate(120deg) brightness(1.1);
+  }
+}
+
+.hero-pulse-orb {
+  position: absolute;
+  top: 35%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 300px;
+  height: 300px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(0, 217, 146, 0.08) 0%,
+    transparent 70%
+  );
+  animation: prismatic-pulse 6s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.text-gradient-accent {
+  background: linear-gradient(135deg, #00d992 0%, #8b5cf6 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+@keyframes fadeInDelayed {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-fade-in-delayed {
+  animation: fadeInDelayed 0.6s ease-out forwards;
+  opacity: 0;
+}
+
+/* RainbowKit modal portal z-index */
+[data-rk] {
+  z-index: 99999 !important;
+}
+
+@keyframes gradientShift {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+.text-gradient-animated {
+  background: linear-gradient(
+    135deg,
+    #00d992 0%,
+    #8b5cf6 25%,
+    #ff6b35 50%,
+    #00d992 75%,
+    #8b5cf6 100%
+  );
+  background-size: 300% 300%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: gradientShift 6s ease-in-out infinite;
+}
+
+.hero-grain {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  opacity: 0.035;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 128px 128px;
+}
+
+.glass-card {
+  background: rgba(17, 17, 17, 0.6) !important;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+.glass-card:hover {
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.12),
+    0 12px 40px rgba(0, 0, 0, 0.5),
+    0 0 60px rgba(0, 217, 146, 0.14),
+    0 0 120px rgba(139, 92, 246, 0.08) !important;
+}
