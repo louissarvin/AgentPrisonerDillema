@@ -684,6 +684,47 @@ export async function orchestrateMatch(config: MatchConfig): Promise<string> {
           winner: localScoreA > localScoreB ? agentAName : localScoreB > localScoreA ? agentBName : 'draw',
         });
 
+        // Update agent leaderboard stats
+        const coopsA = historyA.filter(h => h.yourMove === 'cooperate').length;
+        const coopsB = historyB.filter(h => h.yourMove === 'cooperate').length;
+        const coopRateA = coopsA / Math.max(roundNumber, 1);
+        const coopRateB = coopsB / Math.max(roundNumber, 1);
+
+        // Fetch current stats to compute weighted coop rate average
+        const [agentARecord, agentBRecord] = await Promise.all([
+          prismaQuery.agent.findUnique({ where: { id: agentAId }, select: { matchesPlayed: true, coopRate: true } }),
+          prismaQuery.agent.findUnique({ where: { id: agentBId }, select: { matchesPlayed: true, coopRate: true } }),
+        ]);
+        const prevMatchesA = agentARecord?.matchesPlayed ?? 0;
+        const prevMatchesB = agentBRecord?.matchesPlayed ?? 0;
+        const avgCoopA = prevMatchesA > 0
+          ? ((agentARecord!.coopRate * prevMatchesA) + coopRateA) / (prevMatchesA + 1)
+          : coopRateA;
+        const avgCoopB = prevMatchesB > 0
+          ? ((agentBRecord!.coopRate * prevMatchesB) + coopRateB) / (prevMatchesB + 1)
+          : coopRateB;
+
+        await Promise.all([
+          prismaQuery.agent.update({
+            where: { id: agentAId },
+            data: {
+              matchesPlayed: { increment: 1 },
+              totalScore: { increment: localScoreA },
+              totalWins: { increment: localScoreA > localScoreB ? 1 : 0 },
+              coopRate: avgCoopA,
+            },
+          }),
+          prismaQuery.agent.update({
+            where: { id: agentBId },
+            data: {
+              matchesPlayed: { increment: 1 },
+              totalScore: { increment: localScoreB },
+              totalWins: { increment: localScoreB > localScoreA ? 1 : 0 },
+              coopRate: avgCoopB,
+            },
+          }),
+        ]).catch(err => console.warn('[Orchestrator] Agent stats update failed:', err));
+
         // Save persistent memory to 0G Storage (cross-match learning)
         const roundsForA = historyA.map(h => ({
           myMove: h.yourMove,
