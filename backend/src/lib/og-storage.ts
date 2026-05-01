@@ -1,6 +1,15 @@
+import { createHash } from 'crypto';
 import { ethers } from 'ethers';
 import { Indexer, MemData, Batcher, getFlowContract } from '@0gfoundation/0g-ts-sdk';
-import { ZG_PRIVATE_KEY, ZG_RPC_URL, ZG_INDEXER_URL, ZG_FLOW_ADDRESS } from '../config/main-config.ts';
+import { ZG_PRIVATE_KEY, ZG_RPC_URL, ZG_INDEXER_URL, ZG_FLOW_ADDRESS, AGENT_ENCRYPTION_KEY } from '../config/main-config.ts';
+
+// Derive a deterministic 32-byte AES-256 key from the config string.
+// SHA-256 always produces exactly 32 bytes, matching the SDK's requirement.
+function deriveEncryptionKey(): Uint8Array {
+  return new Uint8Array(createHash('sha256').update(AGENT_ENCRYPTION_KEY).digest());
+}
+
+const ENCRYPTION_KEY = deriveEncryptionKey();
 
 let indexerInstance: Indexer | null = null;
 let signerInstance: ethers.Wallet | null = null;
@@ -100,13 +109,32 @@ export async function uploadAgentReasoning(
   round: number,
   reasoning: Record<string, unknown>
 ): Promise<UploadResult> {
-  return uploadMatchHistory(`${matchId}-${agentName}-r${round}`, {
+  const indexer = getIndexer();
+  const signer = getSigner();
+
+  const payload = JSON.stringify({
+    matchId: `${matchId}-${agentName}-r${round}`,
+    uploadedAt: Date.now(),
     type: 'agent_reasoning',
+    encrypted: true,
     agentName,
-    matchId,
     round,
     reasoning,
   });
+
+  const memData = new MemData(new TextEncoder().encode(payload));
+  const [tree, treeErr] = await memData.merkleTree();
+  if (treeErr) throw new Error(`Merkle tree failed: ${treeErr.message}`);
+
+  const rootHash: string = tree!.rootHash() ?? '';
+
+  const [tx, uploadErr] = await indexer.upload(memData, ZG_RPC_URL, signer, {
+    encryption: { type: 'aes256', key: ENCRYPTION_KEY },
+  });
+  if (uploadErr) throw new Error(`Upload failed: ${uploadErr.message}`);
+
+  console.log(`[0G Storage] Uploaded agent reasoning (encrypted): ${rootHash}`);
+  return { rootHash, txHash: (tx as any).txHash || '' };
 }
 
 export async function uploadNegotiationTranscript(
@@ -202,26 +230,36 @@ export async function saveAgentMemory(memory: AgentMemoryState): Promise<UploadR
 
   const payload = JSON.stringify({
     type: 'agent_persistent_memory',
+    encrypted: true,
     ...memory,
     updatedAt: Date.now(),
   });
 
   const memData = new MemData(new TextEncoder().encode(payload));
 
-  const [tx, uploadErr] = await indexer.upload(memData, ZG_RPC_URL, signer);
+  const [tx, uploadErr] = await indexer.upload(memData, ZG_RPC_URL, signer, {
+    encryption: { type: 'aes256', key: ENCRYPTION_KEY },
+  });
   if (uploadErr) throw new Error(`Memory upload failed: ${uploadErr.message}`);
 
   const rootHash = (tx as any).rootHash || '';
   const txHash = (tx as any).txHash || '';
 
-  console.log(`[0G Storage] Saved ${memory.agentName} memory: ${rootHash}`);
+  console.log(`[0G Storage] Saved ${memory.agentName} memory (encrypted): ${rootHash}`);
   return { rootHash, txHash };
 }
 
 export async function loadAgentMemory(rootHash: string): Promise<AgentMemoryState | null> {
   try {
     const indexer = getIndexer();
-    const [blob, dlErr] = await indexer.downloadToBlob(rootHash, { proof: true });
+
+    // Try decrypted download first (handles the 17-byte header automatically).
+    // If the blob was not encrypted, the SDK's tryDecrypt falls back gracefully
+    // and returns the raw bytes, so this works for legacy unencrypted data too.
+    const [blob, dlErr] = await indexer.downloadToBlob(rootHash, {
+      proof: true,
+      decryption: { symmetricKey: ENCRYPTION_KEY },
+    });
     if (dlErr) {
       console.warn(`[0G Storage] Memory download failed: ${dlErr.message}`);
       return null;
@@ -229,6 +267,8 @@ export async function loadAgentMemory(rootHash: string): Promise<AgentMemoryStat
 
     const text = await (blob as Blob).text();
     const data = JSON.parse(text);
+
+    console.log(`[0G Storage] Loaded memory for ${data.agentName || 'unknown'} (encrypted: ${data.encrypted === true})`);
     return data as AgentMemoryState;
   } catch (err) {
     console.warn(`[0G Storage] Failed to load memory from ${rootHash}:`, err);
