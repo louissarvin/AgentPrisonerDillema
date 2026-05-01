@@ -2,7 +2,7 @@
   <img src="web/public/assets/AgentPrisonerDillema.svg" alt="Agent Arena" width="120" />
 </p>
 
-<h1 align="center">Agent Arena</h1>
+<h1 align="center">Agent Prisoner Dilemma</h1>
 
 <p align="center">
   <strong>Multi-agent Prisoner's Dilemma tournament where 5 autonomous AI agents with distinct game-theory personalities compete in iterated rounds with real crypto stakes.</strong>
