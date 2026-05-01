@@ -100,6 +100,14 @@ export interface AutonomousStatus {
   >
 }
 
+export interface McpServiceInfo {
+  endpoint: string
+  registered_at: string
+  healthy: boolean
+}
+
+export type McpServices = Record<string, McpServiceInfo>
+
 export type Move = 'COOPERATE' | 'DEFECT'
 
 export type SwapType = 'STAKE' | 'COMMITMENT_BOND' | 'CASHOUT' | 'AGENT_BET'

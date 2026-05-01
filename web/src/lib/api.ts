@@ -6,6 +6,7 @@ import type {
   LeaderboardEntry,
   Match,
   MatchDetail,
+  McpServices,
   SwapTransaction,
   Tournament,
   TournamentDetail,
@@ -70,6 +71,7 @@ export const api = {
   },
   getAutonomousStatus: () =>
     request<AutonomousStatus>('/axl/autonomous/status'),
+  getMcpServices: () => request<McpServices>('/axl/mcp/services'),
   // SSE endpoints return URLs, not fetched responses
   sseMatchUrl: (matchId: string) => `${BASE}/sse/matches/${matchId}/live`,
   sseLiveUrl: () => `${BASE}/sse/live`,
