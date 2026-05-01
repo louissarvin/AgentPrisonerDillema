@@ -223,6 +223,9 @@ Negotiation transcripts, agent reasoning chains, and match histories are uploade
 ### 0G Storage: KV Store (Mutable Agent Memory)
 Trust scores, opponent profiles, and strategy notes are dual-written to the KV Batcher API with stream-addressed keys. Agents maintain persistent cross-match memory that evolves as they gather intelligence.
 
+### 0G Storage: AES-256 Encryption
+Sensitive agent data (reasoning chains, memory with trust scores, strategic notes) is encrypted client-side using the SDK's native AES-256 encryption before upload. Public data (negotiation transcripts, match results) remains unencrypted for verifiability. Decryption is automatic on download with backward compatibility for unencrypted legacy blobs.
+
 ### 0G Chain (Galileo Testnet)
 `GameManager` and `TournamentManager` contracts handle commit-reveal game logic, payoff resolution, and round-robin bracket orchestration.
 
@@ -243,6 +246,12 @@ All negotiation routes through AXL's encrypted P2P mesh as the primary communica
 - **Autonomous loops**: Agents independently drain incoming messages via `/recv`, process them, and respond via `/send`
 - **Topology discovery**: Agents call `/topology` to discover peers in the mesh
 - **Hub broadcasts**: Commit confirmations, reveal notifications, and round results propagate through the hub
+
+### MCP Service Registration
+Agent negotiation capabilities are registered as named MCP services on the AXL router. Each agent exposes two MCP tools (`negotiate` and `get_strategy`) via JSON-RPC 2.0. Remote peers can invoke tools via `/mcp/{peer_id}/{service_name}`, enabling structured request-response patterns alongside raw messaging.
+
+### A2A Agent Cards
+Agents advertise discoverable skill cards via the A2A protocol at `/.well-known/agent.json`. Remote peers fetch agent cards via `GET /a2a/{peer_id}` and send structured A2A messages via `POST /a2a/{peer_id}` with correlation IDs for task tracking.
 
 </details>
 
@@ -321,6 +330,10 @@ Agents autonomously manage finances via the Uniswap Trading API v1 on Unichain S
 | `POST` | `/treasury/balances` | Query agent wallet balances |
 | `GET` | `/axl/status` | AXL cluster health check |
 | `POST` | `/axl/autonomous/start` | Start autonomous agent loops |
+| `GET` | `/axl/mcp/status` | MCP negotiate service status |
+| `GET` | `/axl/mcp/services` | List registered MCP services |
+| `POST` | `/axl/mcp/start` | Start MCP service + register with router |
+| `POST` | `/axl/mcp/stop` | Stop MCP service + deregister |
 
 ---
 
@@ -329,8 +342,10 @@ Agents autonomously manage finances via the Uniswap Trading API v1 on Unichain S
 | SDK / Protocol | Usage |
 |:---------------|:------|
 | `@0glabs/0g-serving-broker` | TEE-verified AI inference via compute network broker |
-| `@0gfoundation/0g-ts-sdk` | Blob upload (Indexer, MemData, Merkle), KV write (Batcher), flow contract |
-| AXL binary | P2P mesh with hub topology, `/send`, `/recv`, `/topology` REST APIs |
+| `@0gfoundation/0g-ts-sdk` | Blob upload (Indexer, MemData, Merkle), KV write (Batcher), AES-256 encryption, flow contract |
+| AXL binary | P2P mesh with hub topology, `/send`, `/recv`, `/topology`, `/mcp`, `/a2a` REST APIs |
+| AXL MCP Router | Service registration, remote tool invocation via JSON-RPC 2.0 |
+| AXL A2A Server | Agent card discovery, structured message/send with correlation IDs |
 | Uniswap Trading API v1 | `check_approval`, `quote`, `swap` endpoints with Permit2 on Unichain Sepolia |
 | OpenZeppelin v5 | ReentrancyGuard, SafeERC20, Ownable2Step, Ownable |
 | ethers.js v6 | Wallet management, contract interaction, RPC providers |
@@ -344,9 +359,9 @@ Agents autonomously manage finances via the Uniswap Trading API v1 on Unichain S
 agent-prisoner-dillema/
   backend/                    Bun/Fastify API server
     src/
-      services/               Match orchestrator, agent runner, memory, treasury, betting
-      lib/                    0G Compute, 0G Storage, AXL client, Uniswap agent
-      routes/                 REST API endpoints + SSE streams
+      services/               Match orchestrator, agent runner, memory, treasury, betting, MCP service
+      lib/                    0G Compute, 0G Storage (encrypted), AXL client (MCP + A2A), Uniswap agent
+      routes/                 REST API + SSE streams + AXL MCP management
       config/                 Centralized environment config
     prisma/                   Database schema
   web/                        TanStack Start frontend
@@ -364,12 +379,11 @@ agent-prisoner-dillema/
       BettingPool.t.sol       Betting tests
   axl/                        Gensyn AXL P2P mesh
     node                      AXL binary
-    hub-config.json           Hub node (port 9002)
-    mirror-config.json        Mirror agent (port 9012)
-    scorpion-config.json      Scorpion agent (port 9022)
-    viper-config.json         Viper agent (port 9032)
-    dove-config.json          Dove agent (port 9042)
-    phoenix-config.json       Phoenix agent (port 9052)
+    hub-config.example.json   Hub config template (MCP + A2A enabled)
+    agent-config.example.json Agent config template
+    integrations/
+      mcp_routing/            MCP Router (Python, JSON-RPC service registry)
+      a2a_serving/            A2A Server (Python, agent card discovery)
     *.pem                     Ed25519 identity keys
 ```
 
@@ -379,35 +393,76 @@ agent-prisoner-dillema/
 
 ### Prerequisites
 
-- [Bun](https://bun.sh) (runtime and package manager)
-- [PostgreSQL](https://www.postgresql.org/) (database)
-- [Foundry](https://book.getfoundry.sh/) (contract development, optional)
+| Tool | Version | Install |
+|:-----|:--------|:--------|
+| [Bun](https://bun.sh) | 1.1+ | `curl -fsSL https://bun.sh/install \| bash` |
+| [PostgreSQL](https://www.postgresql.org/) | 15+ | `brew install postgresql@15` |
+| [Python 3](https://www.python.org/) | 3.9+ | `brew install python` (for AXL MCP router) |
+| [Foundry](https://book.getfoundry.sh/) | latest | `curl -L https://foundry.paradigm.xyz \| bash` (optional, contracts only) |
 
-### 1. Backend
+### 1. Clone and Install
 
 ```bash
-cd backend
-cp .env.example .env    # Fill in your keys (see Environment Variables below)
-bun install
-bun run db:push
-bun dev                 # Runs on port 3700
+git clone https://github.com/louissarvin/AgentPrisonerDillema.git
+cd AgentPrisonerDillema
 ```
 
-### 2. AXL Cluster
+### 2. AXL Cluster (start first, backend depends on it)
 
 ```bash
 cd axl
+
+# Generate AXL identity keys (one-time)
+# Each agent needs its own ed25519 key
+openssl genpkey -algorithm ed25519 -out hub.pem
+openssl genpkey -algorithm ed25519 -out mirror.pem
+openssl genpkey -algorithm ed25519 -out scorpion.pem
+openssl genpkey -algorithm ed25519 -out viper.pem
+openssl genpkey -algorithm ed25519 -out dove.pem
+openssl genpkey -algorithm ed25519 -out phoenix.pem
+
+# Copy example configs (adjust paths if needed)
+cp hub-config.example.json hub-config.json
+cp agent-config.example.json mirror-config.json
+# Repeat for scorpion, viper, dove, phoenix with different ports (9022, 9032, 9042, 9052)
+
+# Start 6 P2P nodes
 ./node -config hub-config.json &
 ./node -config mirror-config.json &
 ./node -config scorpion-config.json &
 ./node -config viper-config.json &
 ./node -config dove-config.json &
 ./node -config phoenix-config.json &
+
+# Start MCP Router (enables structured tool invocation between agents)
+cd integrations
+pip3 install aiohttp
+python3 -m mcp_routing.mcp_router --port 9003 &
 ```
 
-Starts 6 AXL nodes forming a P2P mesh. The hub coordinates topology; agent nodes handle per-agent message routing.
+### 3. Backend
 
-### 3. Frontend
+```bash
+cd backend
+cp .env.example .env    # Fill in your keys (see Environment Variables below)
+bun install
+bun run db:push         # Push schema + generate Prisma client
+bun dev                 # Runs on port 3700
+```
+
+On startup you should see:
+```
+Server started on port 3700
+[AXL] Agent Mirror connected: peer ...
+[AXL] Agent Scorpion connected: peer ...
+[AXL] Agent Viper connected: peer ...
+[AXL] Agent Dove connected: peer ...
+[AXL] Agent Phoenix connected: peer ...
+[MCP-Service] Negotiate service listening on http://127.0.0.1:7100
+[MCP-Service] Registered 'negotiate' with MCP router at port 9003
+```
+
+### 4. Frontend
 
 ```bash
 cd web
@@ -415,21 +470,51 @@ bun install
 bun dev                 # Runs on port 3200
 ```
 
-### 4. Run a Tournament
+Open [http://localhost:3200](http://localhost:3200)
+
+### 5. Run a Tournament
 
 ```bash
-# Setup 0G Compute broker
+# Step 1: Setup 0G Compute broker (one-time)
 curl -X POST http://localhost:3700/game/setup-compute \
   -H "Content-Type: application/json" \
   -d '{"depositAmount": 1}'
 
-# Create tournament
-curl -X POST http://localhost:3700/game/tournaments
+# Step 2: Seed agents (one-time)
+curl -X POST http://localhost:3700/game/seed-agents
 
-# Start a match
+# Step 3: Fund agents with ETH for gas
+curl -X POST http://localhost:3700/game/fund-agents
+
+# Step 4: Fund agents with USDC for betting
+curl -X POST http://localhost:3700/game/fund-agents-usdc \
+  -H "Content-Type: application/json" \
+  -d '{"amountPerAgent": "10.00"}'
+
+# Step 5: Create tournament
+curl -X POST http://localhost:3700/game/tournaments \
+  -H "Content-Type: application/json" -d '{}'
+
+# Step 6: Start matches (use the tournamentId from step 5)
 curl -X POST http://localhost:3700/game/matches/start \
   -H "Content-Type: application/json" \
   -d '{"tournamentId": "<id>", "agentAName": "Mirror", "agentBName": "Viper"}'
+```
+
+Each match runs 3-10 rounds (probabilistic termination). Watch the match live at `http://localhost:3200/arena/<matchId>`.
+
+### Full Round-Robin (10 matches)
+
+With 5 agents, a full tournament has 10 matches. After creating the tournament, start all 10:
+
+```bash
+T="<tournamentId>"
+curl -X POST http://localhost:3700/game/matches/start -H "Content-Type: application/json" -d "{\"tournamentId\":\"$T\",\"agentAName\":\"Mirror\",\"agentBName\":\"Viper\"}"
+# Wait for match to complete, then start the next:
+# Mirror vs Dove, Mirror vs Scorpion, Mirror vs Phoenix
+# Viper vs Dove, Viper vs Scorpion, Viper vs Phoenix
+# Dove vs Scorpion, Dove vs Phoenix
+# Scorpion vs Phoenix
 ```
 
 ---
