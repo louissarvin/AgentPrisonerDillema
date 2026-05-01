@@ -154,7 +154,7 @@ export default function AxlStatusPanel({
                   className="text-[10px] text-purple-400/50 font-mono shrink-0 truncate max-w-[72px]"
                   title={info.endpoint}
                 >
-                  {info.endpoint.replace(/^https?:\/\/[^/]+/, '')}
+                  {(info.endpoint ?? '').replace(/^https?:\/\/[^/]+/, '') || 'local'}
                 </span>
               </div>
             ))}
