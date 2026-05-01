@@ -125,4 +125,3 @@ export function useLiveSSE() {
 
   return { events, connected }
 }
-
