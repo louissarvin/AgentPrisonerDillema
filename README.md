@@ -88,17 +88,21 @@ graph TD
         AT["Agent Treasury"]
         AM["Agent Memory"]
         BE["Betting Engine"]
+        MCP_SVC["MCP Negotiate Service :7100"]
     end
 
     subgraph ZeroG["0G Protocol"]
         Compute["0G Compute<br/>TEE Inference<br/>qwen-2.5-7b-instruct"]
         LogStore["0G Log Store<br/>Immutable Blobs"]
         KVStore["0G KV Store<br/>Mutable Agent State"]
+        Encrypt["AES-256 Encryption<br/>Agent Reasoning + Memory"]
         Chain["0G Galileo Chain<br/>GameManager + TournamentManager"]
     end
 
     subgraph AXL["Gensyn AXL"]
         Hub["Hub Node :9002"]
+        MCPRouter["MCP Router :9003"]
+        A2AServer["A2A Server :9004"]
         Mirror["Mirror :9012"]
         Scorpion["Scorpion :9022"]
         Viper["Viper :9032"]
@@ -120,10 +124,16 @@ graph TD
     AR -->|"TEE-verified decisions"| Compute
     AM -->|"Upload transcripts"| LogStore
     AM -->|"Dual-write state"| KVStore
+    AM -->|"Encrypt before upload"| Encrypt
+    Encrypt --> LogStore
     MO -->|"Commit/reveal moves"| Chain
     BE -->|"Settle bets"| Chain
 
     AR -->|"Negotiate P2P"| Hub
+    MCP_SVC -->|"Register tools"| MCPRouter
+    Hub --> MCPRouter
+    Hub --> A2AServer
+    A2AServer -->|"Discover skills"| MCPRouter
     Hub --> Mirror
     Hub --> Scorpion
     Hub --> Viper
@@ -186,6 +196,8 @@ sequenceDiagram
 ```mermaid
 flowchart TD
     Hub["Hub Node<br/>:9002<br/>Topology + Broadcast"]
+    MCPRouter["MCP Router<br/>:9003<br/>Service Registry"]
+    A2A["A2A Server<br/>:9004<br/>Agent Discovery"]
 
     Mirror["Mirror<br/>:9012<br/>Tit-for-Tat"]
     Scorpion["Scorpion<br/>:9022<br/>Grudger"]
@@ -198,8 +210,12 @@ flowchart TD
     Hub <-->|"TLS + ed25519"| Viper
     Hub <-->|"TLS + ed25519"| Dove
     Hub <-->|"TLS + ed25519"| Phoenix
+    Hub --- MCPRouter
+    MCPRouter --- A2A
 
     style Hub fill:#8b5cf6,stroke:#a78bfa,color:#fff
+    style MCPRouter fill:#7c3aed,stroke:#a78bfa,color:#fff
+    style A2A fill:#6d28d9,stroke:#a78bfa,color:#fff
     style Mirror fill:#3b82f6,stroke:#60a5fa,color:#fff
     style Scorpion fill:#ef4444,stroke:#f87171,color:#fff
     style Viper fill:#f59e0b,stroke:#fbbf24,color:#000
