@@ -74,3 +74,11 @@ export function useAutonomousStatus() {
     refetchInterval: 5000,
   })
 }
+
+export function useMcpServices() {
+  return useQuery({
+    queryKey: ['mcpServices'],
+    queryFn: api.getMcpServices,
+    refetchInterval: 15000,
+  })
+}
