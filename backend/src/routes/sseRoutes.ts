@@ -68,3 +68,4 @@ export const sseRoutes: FastifyPluginCallback = (app: FastifyInstance, _opts, do
   done();
 };
 
+
