@@ -54,6 +54,8 @@ export const UNICHAIN_FUNDER_PRIVATE_KEY: string = process.env.UNICHAIN_FUNDER_P
 export const AXL_HUB_PORT: number = Number(process.env.AXL_HUB_PORT) || 9002;
 export const AXL_AGENT_PORTS: number[] = (process.env.AXL_AGENT_PORTS || '9012,9022,9032,9042,9052')
   .split(',').map(p => parseInt(p.trim(), 10));
+export const AXL_ROUTER_PORT: number = Number(process.env.AXL_ROUTER_PORT) || 9003;
+export const AXL_MCP_SERVICE_PORT: number = Number(process.env.AXL_MCP_SERVICE_PORT) || 7100;
 
 // Error Log Configuration
 export const ERROR_LOG_MAX_RECORDS: number = 10000;
@@ -83,6 +85,8 @@ export default {
   UNICHAIN_FUNDER_PRIVATE_KEY,
   AXL_HUB_PORT,
   AXL_AGENT_PORTS,
+  AXL_ROUTER_PORT,
+  AXL_MCP_SERVICE_PORT,
   ERROR_LOG_MAX_RECORDS,
   ERROR_LOG_CLEANUP_INTERVAL,
 };
