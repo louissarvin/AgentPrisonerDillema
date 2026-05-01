@@ -1,0 +1,15 @@
+node_modules
+.git
+.claude
+.playwright-mcp
+memory
+.env
+*.pem
+web
+contracts/out
+contracts/cache
+contracts/broadcast
+.axl-data
+.output
+.tanstack
+*.lockb
