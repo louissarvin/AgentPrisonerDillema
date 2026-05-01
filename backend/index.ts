@@ -16,6 +16,7 @@ import { startErrorLogCleanupWorker } from './src/workers/errorLogCleanup.ts';
 
 // Services
 import { axlManager } from './src/services/axl-manager.ts';
+import { startMcpService, stopMcpService } from './src/services/axl-mcp-service.ts';
 
 console.log(
   '======================\n======================\nAGENT PRISONER DILEMMA BACKEND\n======================\n======================\n'
@@ -72,6 +73,11 @@ const start = async (): Promise<void> => {
       console.warn('[Init] Autonomous agents not started:', err instanceof Error ? err.message : err);
     });
 
+    // Start MCP negotiate service and register with AXL router
+    await startMcpService().catch(err => {
+      console.warn('[Init] MCP negotiate service not started:', err instanceof Error ? err.message : err);
+    });
+
     await fastify.listen({
       port: APP_PORT,
       host: '0.0.0.0',
@@ -97,6 +103,8 @@ const start = async (): Promise<void> => {
     console.log(`  POST /axl/autonomous/start   Start autonomous agent loops`);
     console.log(`  POST /axl/autonomous/stop    Stop autonomous agent loops`);
     console.log(`  GET  /axl/autonomous/status  Autonomous agent status`);
+    console.log(`  GET  /axl/mcp/status         MCP service status`);
+    console.log(`  GET  /axl/mcp/services       List MCP router services`);
     console.log(`  POST /treasury/stake      Agent auto-stake (Uniswap ETH->USDC)`);
     console.log(`  POST /treasury/cashout    Agent cashout (Uniswap USDC->ETH)`);
     console.log(`  POST /treasury/balances   Agent wallet balances`);
